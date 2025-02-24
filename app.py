@@ -1,4 +1,5 @@
 from flask import Flask, request, send_file, render_template
+from flask_cors import CORS  # Importe o CORS
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
@@ -6,6 +7,7 @@ import os
 from copy import copy
 
 app = Flask(__name__)
+CORS(app)  # Habilite o CORS para todas as rotas
 
 # Página inicial com o formulário de upload
 @app.route('/', methods=['GET'])
