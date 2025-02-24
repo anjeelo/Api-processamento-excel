@@ -1,0 +1,31 @@
+# Ignorar arquivos de ambiente virtual
+venv/
+env/
+.env
+
+# Ignorar pasta de uploads
+uploads/
+
+# Ignorar arquivos do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignorar arquivos de IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignorar arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Ignorar arquivos de log
+*.log
+
+# Ignorar arquivos de configuração sensíveis
+*.env
+*.key
+*.pem
