@@ -4,6 +4,8 @@ from openpyxl import load_workbook
 import os
 import time
 import logging
+import zipfile
+from io import BytesIO
 
 app = Flask(__name__)
 
@@ -17,7 +19,7 @@ app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB
 # Página inicial com o formulário de upload
 @app.route('/', methods=['GET'])
 def index():
-    return '''
+    return render_template_string('''
     <!DOCTYPE html>
     <html lang="pt-BR">
     <head>
@@ -111,7 +113,7 @@ def index():
         </script>
     </body>
     </html>
-    '''
+    ''')
 
 # Rota para processar o arquivo enviado
 @app.route('/upload', methods=['POST'])
@@ -133,37 +135,34 @@ def upload_file():
             logger.error("Arquivo excede o tamanho máximo permitido")
             return "Arquivo excede o tamanho máximo permitido (10MB)", 400
 
-        # Salvar o arquivo enviado na pasta 'uploads'
-        uploads_dir = os.path.join(os.getcwd(), 'uploads')
-        if not os.path.exists(uploads_dir):
-            os.makedirs(uploads_dir)
-        filepath = os.path.join(uploads_dir, file.filename)
-        file.save(filepath)
-
         # Processar o arquivo
-        output_filepath = process_file(filepath)
+        output_zip = process_file(file)
 
         # Enviar o arquivo processado para o usuário
         logger.info(f"Arquivo processado em {time.time() - start_time:.2f} segundos")
-        return send_file(output_filepath, as_attachment=True)
+        return send_file(output_zip, as_attachment=True, download_name='arquivos_gerados.zip')
     else:
         logger.error("Formato de arquivo inválido")
         return "Formato de arquivo inválido. Apenas arquivos .xlsx ou .xls são permitidos.", 400
 
 # Função para processar o arquivo Excel
-def process_file(filepath):
+def process_file(file):
     start_time = time.time()
     # Carregar o arquivo Excel
-    df = pd.read_excel(filepath, usecols="A:H")
+    df = pd.read_excel(file, usecols="A:H")
     df = df.dropna(how='all')  # Remover linhas completamente vazias
     dados_atualizados = [tuple(row) for row in df.itertuples(index=False, name=None)]
 
-    # Processar cada linha de dados
-    for or_, ta, obra, localidade, causa, tratativa, endereco, exec_obra in dados_atualizados:
-        output_filepath = preencher_planilha(ta, obra, localidade, tratativa, endereco, exec_obra, or_, causa)
+    # Criar um arquivo .zip em memória
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w') as zipf:
+        for or_, ta, obra, localidade, causa, tratativa, endereco, exec_obra in dados_atualizados:
+            output_file = preencher_planilha(ta, obra, localidade, tratativa, endereco, exec_obra, or_, causa)
+            zipf.writestr(f'{obra}.xlsx', output_file.getvalue())
 
+    zip_buffer.seek(0)
     logger.info(f"Arquivo processado em {time.time() - start_time:.2f} segundos")
-    return output_filepath
+    return zip_buffer
 
 # Função para preencher a planilha base
 def preencher_planilha(ta, obra, localidade, tratativa, endereco, exec_obra, or_, causa, nome_arquivo_base='modelocroqui.xlsx'):
@@ -182,17 +181,15 @@ def preencher_planilha(ta, obra, localidade, tratativa, endereco, exec_obra, or_
     ws['C42'] = or_           # OR
     ws['C51'] = causa         # Causa
 
-    # Salvar a planilha atualizada
-    nome_arquivo_saida = f'{obra}.xlsx'
-    output_filepath = os.path.join('uploads', nome_arquivo_saida)
-    wb.save(output_filepath)
+    # Salvar a planilha atualizada em memória
+    output_buffer = BytesIO()
+    wb.save(output_buffer)
+    output_buffer.seek(0)
 
     logger.info(f"Planilha preenchida em {time.time() - start_time:.2f} segundos")
-    return output_filepath
+    return output_buffer
 
 # Iniciar o servidor Flask
 if __name__ == "__main__":
-    if not os.path.exists('uploads'):
-        os.makedirs('uploads')
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
