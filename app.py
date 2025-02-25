@@ -1,18 +1,108 @@
-from flask import Flask, request, send_file, render_template
-from flask_cors import CORS  # Importe o CORS
+from flask import Flask, request, send_file, render_template_string
 import pandas as pd
 from openpyxl import load_workbook
-from openpyxl.drawing.image import Image
 import os
-from copy import copy
 
 app = Flask(__name__)
-CORS(app)  # Habilite o CORS para todas as rotas
 
 # Página inicial com o formulário de upload
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')
+    return '''
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Upload de Arquivo</title>
+        <style>
+            body, html {
+                margin: 0;
+                padding: 0;
+                height: 100%;
+                font-family: Arial, sans-serif;
+                background-color: #f4f4f4;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+            .container {
+                text-align: center;
+            }
+            .file-input {
+                background-color: black;
+                padding: 30px;
+                border-radius: 12px;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+                display: inline-block;
+            }
+            .file-input label {
+                display: block;
+                margin-bottom: 15px;
+                font-size: 20px;
+                color: wheat;
+                font-weight: bold;
+            }
+            .file-input input[type="file"] {
+                display: none;
+            }
+            .file-input .custom-file-upload {
+                display: inline-block;
+                padding: 12px 24px;
+                background-color: #007bff;
+                color: #fff;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 16px;
+                transition: background-color 0.3s ease;
+            }
+            .file-input .custom-file-upload:hover {
+                background-color: #0056b3;
+            }
+            .file-input .file-name {
+                margin-top: 15px;
+                font-size: 14px;
+                color: white;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="file-input">
+                <label for="file-upload">Escolha um arquivo para upload:</label>
+                <form action="/upload" method="post" enctype="multipart/form-data" onsubmit="return validateFile()">
+                    <input type="file" id="file-upload" name="file" accept=".xlsx, .xls">
+                    <label for="file-upload" class="custom-file-upload">
+                        Selecionar Arquivo
+                    </label>
+                    <div class="file-name" id="file-name">Nenhum arquivo selecionado</div>
+                    <button type="submit" style="margin-top: 20px; padding: 10px 20px; background-color: #28a745; color: #fff; border: none; border-radius: 6px; cursor: pointer;">
+                        Enviar e Processar
+                    </button>
+                </form>
+            </div>
+        </div>
+        <script>
+            document.getElementById('file-upload').addEventListener('change', function() {
+                const fileName = this.files[0] ? this.files[0].name : "Nenhum arquivo selecionado";
+                document.getElementById('file-name').textContent = fileName;
+            });
+            function validateFile() {
+                const fileInput = document.getElementById('file-upload');
+                if (fileInput.files.length === 0) {
+                    alert("Por favor, selecione um arquivo.");
+                    return false;
+                }
+                if (fileInput.files.length > 1) {
+                    alert("Apenas um arquivo pode ser enviado por vez.");
+                    return false;
+                }
+                return true;
+            }
+        </script>
+    </body>
+    </html>
+    '''
 
 # Rota para processar o arquivo enviado
 @app.route('/upload', methods=['POST'])
@@ -57,11 +147,6 @@ def preencher_planilha(ta, obra, localidade, tratativa, endereco, exec_obra, or_
     wb = load_workbook(nome_arquivo_base)
     ws = wb.active  # Selecionar a primeira aba
 
-    # Copiar as imagens da planilha base
-    imagens = {}
-    for img in ws._images:
-        imagens[img.anchor._from] = img
-
     # Preencher os dados nas células especificadas
     ws['C53'] = obra          # Obra
     ws['H53'] = ta            # TA
@@ -71,12 +156,6 @@ def preencher_planilha(ta, obra, localidade, tratativa, endereco, exec_obra, or_
     ws['L43'] = exec_obra     # Execução de Obra
     ws['C42'] = or_           # OR
     ws['C51'] = causa         # Causa
-
-    # Restaurar as imagens na planilha
-    for anchor, img in imagens.items():
-        new_img = Image(img.ref)
-        new_img.anchor = anchor
-        ws.add_image(new_img)
 
     # Salvar a planilha atualizada
     nome_arquivo_saida = f'{obra}.xlsx'
