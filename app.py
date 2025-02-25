@@ -1,6 +1,7 @@
 from flask import Flask, request, send_file, render_template_string
 import pandas as pd
 from openpyxl import load_workbook
+from openpyxl.drawing.image import Image
 import os
 import time
 import logging
@@ -171,6 +172,12 @@ def preencher_planilha(ta, obra, localidade, tratativa, endereco, exec_obra, or_
     wb = load_workbook(nome_arquivo_base)
     ws = wb.active  # Selecionar a primeira aba
 
+    # Copiar as imagens da planilha base
+    images = []
+    for image in ws._images:
+        img = Image(image.ref)
+        images.append(img)
+
     # Preencher os dados nas células especificadas
     ws['C53'] = obra          # Obra
     ws['H53'] = ta            # TA
@@ -180,6 +187,10 @@ def preencher_planilha(ta, obra, localidade, tratativa, endereco, exec_obra, or_
     ws['L43'] = exec_obra     # Execução de Obra
     ws['C42'] = or_           # OR
     ws['C51'] = causa         # Causa
+
+    # Adicionar as imagens de volta à planilha
+    for img in images:
+        ws.add_image(img)
 
     # Salvar a planilha atualizada em memória
     output_buffer = BytesIO()
