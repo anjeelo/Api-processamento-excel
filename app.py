@@ -7,6 +7,7 @@ import time
 import logging
 import zipfile
 from io import BytesIO
+from PIL import Image as PILImage
 
 app = Flask(__name__)
 
@@ -175,8 +176,10 @@ def preencher_planilha(ta, obra, localidade, tratativa, endereco, exec_obra, or_
     # Copiar as imagens da planilha base
     images = []
     for image in ws._images:
-        img = Image(image.ref)
-        images.append(img)
+        img = PILImage.open(image.ref)
+        img_byte_arr = BytesIO()
+        img.save(img_byte_arr, format=img.format)
+
 
     # Preencher os dados nas células especificadas
     ws['C53'] = obra          # Obra
